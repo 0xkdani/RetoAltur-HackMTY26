@@ -12,6 +12,7 @@ payload del scorer por un nombre de campo es cero puntos.
 from __future__ import annotations
 
 import base64
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -20,10 +21,39 @@ from .audio import AudioDecodeError, decode_base64
 from .detector import detect
 from .fusion import FusionModel
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Precalienta el camino completo antes de recibir tráfico.
+
+    La primera inferencia paga la carga perezosa de joblib/sklearn y la
+    compilación de las rutinas de numpy: medimos ~1.2 s en frío contra
+    ~25 ms en caliente. Sin esto, la primera llamada del scorer -- que
+    puede ser la que cronometren -- sale un orden de magnitud más lenta.
+
+    Usamos lifespan y no on_event porque este último está marcado como
+    obsoleto en FastAPI: con 4 personas instalando versiones distintas,
+    lo obsoleto es justo lo que truena en la máquina de alguien más.
+    """
+    import io
+
+    import numpy as np
+    import soundfile as sf
+
+    buffer = io.BytesIO()
+    silence = np.zeros((8000 * 2, 2), dtype=np.float32)
+    sf.write(buffer, silence, 8000, format="WAV", subtype="PCM_16")
+    try:
+        detect(buffer.getvalue())
+    except Exception:  # noqa: BLE001
+        pass  # el warm-up nunca debe impedir que el servicio arranque
+    yield
+
+
 app = FastAPI(
     title="Altur VoiceGuard",
     description="Detección de voz sintética en llamadas telefónicas",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Claves candidatas para el base64, en orden de probabilidad.
@@ -51,32 +81,13 @@ def _extract_blob(body: object) -> bytes:
     )
 
 
-@app.on_event("startup")
-async def warmup() -> None:
-    """Precalienta el camino completo antes de recibir tráfico.
-
-    La primera inferencia paga la carga perezosa de joblib/sklearn y la
-    compilación de las rutinas de numpy: medimos ~1.2 s en frío contra
-    ~30 ms en caliente. Sin esto, la primera llamada del scorer -- que
-    puede ser la que cronometre -- sale un orden de magnitud más lenta.
-    """
-    import io
-
-    import numpy as np
-    import soundfile as sf
-
-    buffer = io.BytesIO()
-    silence = np.zeros((8000 * 2, 2), dtype=np.float32)
-    sf.write(buffer, silence, 8000, format="WAV", subtype="PCM_16")
-    try:
-        detect(buffer.getvalue())
-    except Exception:  # noqa: BLE001
-        pass  # el warm-up nunca debe impedir que el servicio arranque
-
-
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "model_trained": FusionModel().is_trained}
+    modelo = FusionModel()
+    salud = {"status": "ok", "model_trained": modelo.is_trained}
+    if modelo.version_warning:
+        salud["warning"] = modelo.version_warning
+    return salud
 
 
 @app.post("/detect")

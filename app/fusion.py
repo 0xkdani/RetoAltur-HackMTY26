@@ -46,6 +46,7 @@ class FusionModel:
         self.path = path
         self._bundle = None
         self._mtime: float | None = None
+        self.version_warning: str | None = None
 
     def _load(self):
         if not os.path.exists(self.path):
@@ -56,7 +57,28 @@ class FusionModel:
             import joblib
             self._bundle = joblib.load(self.path)
             self._mtime = mtime
+            self._check_versions()
         return self._bundle
+
+    def _check_versions(self) -> None:
+        """Avisa si el modelo se entrenó con otra versión de scikit-learn.
+
+        Con varias personas en el equipo, es normal que alguien entrene con
+        una versión y otro sirva con otra. scikit-learn solo emite un warning
+        discreto que se pierde entre los logs; preferimos que salga en /health
+        y que se vea antes del judging, no durante.
+        """
+        entrenado = (self._bundle or {}).get("sklearn_version")
+        if not entrenado:
+            return
+        import sklearn
+        actual = sklearn.__version__
+        if entrenado != actual:
+            self.version_warning = (
+                f"el modelo se entrenó con scikit-learn {entrenado} y aquí corre "
+                f"{actual}; reinstala con requirements.txt o reentrena")
+        else:
+            self.version_warning = None
 
     @property
     def is_trained(self) -> bool:

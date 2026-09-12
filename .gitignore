@@ -21,3 +21,8 @@ models/silero_vad.onnx
 # El modelo de fusion SI se versiona: pesa 4 KB, son solo coeficientes,
 # y permite desplegar el servicio sin tener el dataset ni reentrenar.
 !models/fusion.joblib
+
+# Secretos: nunca se versionan.
+.env
+.env.*
+!.env.example

@@ -182,6 +182,7 @@ def main() -> int:
         "threshold": float(threshold),
         "metrics": {"cv": cv_results, "val": val_results},
         "n_train": int(len(fit_frame)),
+        "sklearn_version": __import__("sklearn").__version__,
         "train_only": bool(args.train_only),
         "source": args.features,
     }, args.out)
