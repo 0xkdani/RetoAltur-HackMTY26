@@ -1,0 +1,7 @@
+# Solo para entrenar el modelo acústico pesado. No hace falta para servir.
+# CUDA 12.1 para la RTX 3050:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch>=2.4
+torchaudio>=2.4
+transformers>=4.44
+matplotlib>=3.9

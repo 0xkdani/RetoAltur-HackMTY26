@@ -1,0 +1,23 @@
+# Entorno
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Dataset del reto: no se redistribuye (ver terminos de Altur).
+# audio/ y turns/ se enlazan localmente, no se versionan.
+data/audio
+data/turns
+data/raw/
+data/manifest.csv
+manifest.csv
+repo/
+*.wav
+
+# Artefactos regenerables
+data/*.csv
+models/silero_vad.onnx
+
+# El modelo de fusion SI se versiona: pesa 4 KB, son solo coeficientes,
+# y permite desplegar el servicio sin tener el dataset ni reentrenar.
+!models/fusion.joblib
