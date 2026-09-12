@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from .audio import AudioDecodeError, decode_base64
 from .detector import detect
 from .fusion import FusionModel
+from .registro import anotar, resumen
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -81,6 +82,25 @@ def _extract_blob(body: object) -> bytes:
     )
 
 
+def _origen(request: Request) -> str:
+    """De dónde vino la consulta. Sirve para distinguir nuestras pruebas
+    de las del jurado cuando entren por el túnel."""
+    reenviada = request.headers.get("x-forwarded-for")
+    if reenviada:
+        return reenviada.split(",")[0].strip()
+    return request.client.host if request.client else "desconocido"
+
+
+@app.get("/stats")
+async def stats() -> dict:
+    """Resumen en vivo de las consultas recibidas.
+
+    Durante el judging esta es la página que hay que tener abierta: dice
+    si ya empezaron a mandar llamadas, cuántas llevan y si algo truena.
+    """
+    return resumen()
+
+
 @app.get("/health")
 async def health() -> dict:
     modelo = FusionModel()
@@ -122,12 +142,25 @@ async def detect_endpoint(request: Request) -> JSONResponse:
     except Exception as exc:  # noqa: BLE001
         # Nunca tumbar el endpoint durante el scoring: un fallo se responde
         # como "no sintético" con confianza mínima y se deja registrado.
+        anotar({"bytes_recibidos": len(raw), "origen": _origen(request),
+                "error": f"{type(exc).__name__}: {exc}"})
         return JSONResponse(
             status_code=200,
             content={"is_synthetic": False, "confidence": 0.5,
                      "meta": {"error": f"{type(exc).__name__}: {exc}"}},
         )
 
+    meta = result.get("meta", {})
+    anotar({
+        "bytes_recibidos": len(raw),
+        "origen": _origen(request),
+        "duracion_llamada_s": meta.get("duration_s"),
+        "is_synthetic": result["is_synthetic"],
+        "confidence": result["confidence"],
+        "latencia_ms": meta.get("latency_ms"),
+        "turnos_caller": meta.get("caller_turns"),
+        "turnos_agente": meta.get("agent_turns"),
+    })
     return JSONResponse(content=result)
 
 

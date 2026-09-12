@@ -26,3 +26,6 @@ models/silero_vad.onnx
 .env
 .env.*
 !.env.example
+
+# Registro de consultas: se genera solo, no se versiona.
+logs/
