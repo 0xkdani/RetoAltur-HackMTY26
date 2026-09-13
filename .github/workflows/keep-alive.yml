@@ -25,9 +25,9 @@ jobs:
     steps:
       - name: Despertar el servicio
         run: |
-          URL="${{ vars.RENDER_URL || 'PON_AQUI_TU_URL' }}"
+          URL="${{ vars.RENDER_URL || 'https://retoaltur-hackmty26.onrender.com' }}"
 
-          if [ "$URL" = "PON_AQUI_TU_URL" ]; then
+          if [ -z "$URL" ]; then
             echo "Falta configurar la URL de Render."
             echo "Opción A: edita este archivo y pon la URL directo."
             echo "Opción B: en el repo, Settings > Secrets and variables >"

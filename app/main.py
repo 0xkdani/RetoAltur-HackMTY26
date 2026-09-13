@@ -91,6 +91,35 @@ def _origen(request: Request) -> str:
     return request.client.host if request.client else "desconocido"
 
 
+@app.get("/")
+async def inicio() -> dict:
+    """Página de inicio.
+
+    Existe por dos razones prácticas: si un juez abre la URL a secas y ve
+    un 404, va a pensar que el servicio está caído. Y Render hace su
+    chequeo de salud contra la raíz, así que un 404 aquí puede hacer que
+    considere el servicio enfermo y lo reinicie.
+    """
+    modelo = FusionModel()
+    return {
+        "servicio": "Altur VoiceGuard",
+        "descripcion": "Detección de voz sintética en llamadas telefónicas",
+        "reto": "HackMTY 2026 · Defend the Bank Against Voice Deepfakes",
+        "estado": "ok",
+        "modelo_cargado": modelo.is_trained,
+        "endpoint_del_reto": {
+            "ruta": "POST /detect",
+            "recibe": "WAV estéreo 8 kHz en base64 (canal 0 = caller, canal 1 = agente)",
+            "devuelve": {"is_synthetic": "bool", "confidence": "float 0-1"},
+        },
+        "otras_rutas": {
+            "/docs": "probar el servicio desde el navegador",
+            "/health": "estado del servicio",
+            "/stats": "resumen de las consultas recibidas",
+        },
+    }
+
+
 @app.get("/stats")
 async def stats() -> dict:
     """Resumen en vivo de las consultas recibidas.
