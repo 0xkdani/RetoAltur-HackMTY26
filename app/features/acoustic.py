@@ -41,14 +41,18 @@ ACOUSTIC_FEATURES: tuple[str, ...] = (
 
 
 def _stft_mag(x: np.ndarray, n_fft: int = 256, hop: int = 128) -> np.ndarray:
-    """Magnitud STFT con ventana Hann. (frames, bins)"""
+    """Magnitud STFT con ventana Hann. (frames, bins)
+
+    sliding_window_view devuelve una vista sobre el mismo buffer, sin copiar
+    nada. El fancy indexing que había antes materializaba una matriz de
+    n_frames x n_fft, que en una llamada larga son varios millones de
+    valores copiados solo para tirarlos. Resultado idéntico.
+    """
     if x.size < n_fft:
         return np.zeros((0, n_fft // 2 + 1), dtype=np.float64)
     window = np.hanning(n_fft)
-    n_frames = 1 + (x.size - n_fft) // hop
-    idx = np.arange(n_fft)[None, :] + hop * np.arange(n_frames)[:, None]
-    frames = x[idx] * window
-    return np.abs(np.fft.rfft(frames, axis=1))
+    vistas = np.lib.stride_tricks.sliding_window_view(x, n_fft)[::hop]
+    return np.abs(np.fft.rfft(vistas * window, axis=1))
 
 
 def _voiced_frames(x: np.ndarray, segments: list[Segment], sr: int) -> np.ndarray:

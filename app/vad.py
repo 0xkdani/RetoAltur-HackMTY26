@@ -16,15 +16,24 @@ Segment = tuple[float, float]
 
 
 def _frame_energies(x: np.ndarray, sr: int, frame_ms: float, hop_ms: float) -> np.ndarray:
-    """Energía RMS por frame, en dB."""
+    """Energía RMS por frame, en dB.
+
+    Usa suma acumulada en vez de armar la matriz de frames: la energía de
+    cualquier ventana es la resta de dos valores de la acumulada, así que
+    el costo es O(n) en lugar de O(n_frames x frame). Sobre una llamada de
+    4 minutos son ~27 mil ventanas de 240 muestras que ya no se copian.
+    El resultado es idéntico salvo error de redondeo.
+    """
     frame = max(1, int(sr * frame_ms / 1000))
     hop = max(1, int(sr * hop_ms / 1000))
     if x.size < frame:
         return np.zeros(0, dtype=np.float32)
+
     n_frames = 1 + (x.size - frame) // hop
-    idx = np.arange(frame)[None, :] + hop * np.arange(n_frames)[:, None]
-    frames = x[idx]
-    rms = np.sqrt(np.mean(frames.astype(np.float64) ** 2, axis=1) + 1e-12)
+    acumulada = np.concatenate(([0.0], np.cumsum(x.astype(np.float64) ** 2)))
+    inicios = hop * np.arange(n_frames)
+    suma = acumulada[inicios + frame] - acumulada[inicios]
+    rms = np.sqrt(np.maximum(suma, 0.0) / frame + 1e-12)
     return (20.0 * np.log10(rms + 1e-12)).astype(np.float32)
 
 
