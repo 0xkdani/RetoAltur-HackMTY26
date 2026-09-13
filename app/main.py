@@ -15,7 +15,7 @@ import base64
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .audio import AudioDecodeError, decode_base64
 from .detector import detect
@@ -91,16 +91,72 @@ def _origen(request: Request) -> str:
     return request.client.host if request.client else "desconocido"
 
 
-@app.get("/")
-async def inicio() -> dict:
+PAGINA_INICIO = """<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Altur VoiceGuard</title>
+<style>
+ body{{font-family:"Segoe UI",system-ui,sans-serif;background:#0F1721;color:#E8EDF3;
+      margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}}
+ .caja{{max-width:620px;padding:48px 44px}}
+ .pill{{display:inline-block;border:1px solid #2E4A66;border-radius:100px;padding:6px 16px;
+        font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#7FB2E0;margin-bottom:22px}}
+ h1{{font-size:42px;margin:0 0 10px;letter-spacing:-.02em}}
+ .sub{{color:#93A5B8;font-size:18px;line-height:1.55;margin-bottom:30px}}
+ .estado{{display:flex;align-items:center;gap:10px;background:#14251C;border:1px solid #245437;
+          border-radius:10px;padding:14px 18px;margin-bottom:28px}}
+ .punto{{width:10px;height:10px;border-radius:50%;background:#35C46B}}
+ .estado b{{color:#7FE0A5;font-size:15px}}
+ .estado span{{color:#8FA3B5;font-size:14px}}
+ .ep{{background:#16212E;border:1px solid #26374A;border-radius:10px;padding:20px 22px;margin-bottom:26px}}
+ .ep .t{{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#7FB2E0;margin-bottom:10px}}
+ code{{font-family:Consolas,monospace;background:#0C1420;border:1px solid #24364A;
+       border-radius:6px;padding:3px 9px;color:#9FD4FF;font-size:15px}}
+ .ep p{{color:#93A5B8;font-size:14px;line-height:1.6;margin:10px 0 0}}
+ .links{{display:flex;gap:12px;flex-wrap:wrap}}
+ a{{color:#9FD4FF;text-decoration:none;border:1px solid #26374A;border-radius:8px;
+    padding:10px 18px;font-size:14px;transition:.15s}}
+ a:hover{{background:#1B2B3C;border-color:#3D5A78}}
+ .pie{{margin-top:34px;color:#5E7186;font-size:13px;line-height:1.6}}
+</style></head><body><div class="caja">
+ <div class="pill">HackMTY 2026 &middot; Reto Altur</div>
+ <h1>Altur VoiceGuard</h1>
+ <div class="sub">Detecci&oacute;n de voz sint&eacute;tica en llamadas telef&oacute;nicas.</div>
+ <div class="estado"><div class="punto"></div>
+   <b>Servicio en l&iacute;nea</b><span>&middot; modelo cargado: {modelo}</span></div>
+ <div class="ep">
+   <div class="t">Endpoint del reto</div>
+   <code>POST /detect</code>
+   <p>Recibe un WAV est&eacute;reo de 8 kHz en base64 (canal 0 = quien llama,
+      canal 1 = el agente) y responde
+      <code>{{"is_synthetic": bool, "confidence": float}}</code></p>
+ </div>
+ <div class="links">
+   <a href="/docs">Probarlo aqu&iacute;</a>
+   <a href="/health">Estado</a>
+   <a href="/stats">Consultas recibidas</a>
+ </div>
+ <div class="pie">La se&ntilde;al principal no es c&oacute;mo suena la voz, sino
+   c&oacute;mo reacciona: los tiempos de respuesta de una persona son ca&oacute;ticos,
+   los de una m&aacute;quina son parejos.</div>
+</div></body></html>"""
+
+
+@app.get("/", response_model=None)
+async def inicio(request: Request):
     """Página de inicio.
 
-    Existe por dos razones prácticas: si un juez abre la URL a secas y ve
-    un 404, va a pensar que el servicio está caído. Y Render hace su
-    chequeo de salud contra la raíz, así que un 404 aquí puede hacer que
-    considere el servicio enfermo y lo reinicie.
+    Devuelve HTML si la abre un navegador y JSON si la pide un programa,
+    mirando la cabecera Accept. Un juez que abra la URL por curiosidad ve
+    una página presentable en vez de JSON crudo; los monitores automáticos
+    (incluido el health check de Render) siguen recibiendo JSON.
     """
     modelo = FusionModel()
+    acepta = (request.headers.get("accept") or "").lower()
+
+    if "text/html" in acepta:
+        return HTMLResponse(PAGINA_INICIO.format(
+            modelo="sí" if modelo.is_trained else "no"))
+
     return {
         "servicio": "Altur VoiceGuard",
         "descripcion": "Detección de voz sintética en llamadas telefónicas",
