@@ -10,6 +10,27 @@ y responde si quien llama es una voz sintética.
 { "is_synthetic": true, "confidence": 0.87 }
 ```
 
+## 🔗 Servicio en vivo
+
+**https://retoaltur-hackmty26.onrender.com**
+
+| Ruta | Para qué |
+|---|---|
+| `POST /detect` | **El endpoint del reto.** WAV estéreo 8 kHz en base64 |
+| [`/docs`](https://retoaltur-hackmty26.onrender.com/docs) | Probarlo desde el navegador, subiendo un archivo |
+| [`/health`](https://retoaltur-hackmty26.onrender.com/health) | Estado del servicio y si el modelo está cargado |
+| [`/stats`](https://retoaltur-hackmty26.onrender.com/stats) | Consultas recibidas, latencias y errores |
+
+Probarlo desde la terminal:
+
+```bash
+curl https://retoaltur-hackmty26.onrender.com/health
+```
+
+> El plan gratuito de Render duerme el servicio tras 15 minutos sin tráfico.
+> Si la primera petición tarda, es que está despertando: la siguiente ya va
+> a velocidad normal.
+
 ---
 
 ## El enfoque
