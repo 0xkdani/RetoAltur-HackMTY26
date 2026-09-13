@@ -29,3 +29,6 @@ models/silero_vad.onnx
 
 # Registro de consultas: se genera solo, no se versiona.
 logs/
+
+# El guion de la presentacion es interno del equipo, no se publica.
+PRESENTACION.md

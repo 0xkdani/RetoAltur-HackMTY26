@@ -1,0 +1,45 @@
+# Mantiene despierto el servicio en Render.
+#
+# El plan gratuito de Render duerme el servicio tras 15 minutos sin tráfico,
+# y la siguiente petición tarda ~1 minuto en responder mientras despierta.
+# Si esa petición es la primera del jurado, quedamos mal sin merecerlo.
+#
+# Este ping cada 10 minutos lo evita.
+#
+# ANTES DE QUE SIRVA: hay que poner la URL real de Render abajo, donde dice
+# PON_AQUI_TU_URL. La URL del servicio es pública (los jueces la van a usar),
+# así que no hace falta configurarla como secreto.
+
+name: keep-alive
+
+on:
+  schedule:
+    # Cada 10 minutos. GitHub no garantiza puntualidad exacta, pero para
+    # evitar los 15 minutos de inactividad alcanza de sobra.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:        # permite dispararlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar el servicio
+        run: |
+          URL="${{ vars.RENDER_URL || 'PON_AQUI_TU_URL' }}"
+
+          if [ "$URL" = "PON_AQUI_TU_URL" ]; then
+            echo "Falta configurar la URL de Render."
+            echo "Opción A: edita este archivo y pon la URL directo."
+            echo "Opción B: en el repo, Settings > Secrets and variables >"
+            echo "          Actions > Variables > New variable > RENDER_URL"
+            exit 0
+          fi
+
+          echo "Haciendo ping a $URL/health"
+          # -m 90 porque si estaba dormido tarda en despertar.
+          codigo=$(curl -s -o /dev/null -w "%{http_code}" -m 90 "$URL/health" || echo "000")
+          echo "Respondió: $codigo"
+
+          if [ "$codigo" != "200" ]; then
+            echo "::warning::El servicio no respondió 200 (devolvió $codigo)"
+          fi

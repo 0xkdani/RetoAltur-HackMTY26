@@ -1,0 +1,19 @@
+# Configuracion de despliegue en Render.
+#
+# Render lee este archivo y monta el servicio solo. El plan gratuito da
+# 512 MB de RAM y se duerme tras 15 minutos sin trafico: la primera
+# peticion despues de dormir tarda ~1 minuto. Por eso hay un ping
+# automatico en .github/workflows/keep-alive.yml
+
+services:
+  - type: web
+    name: altur-voiceguard
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements-prod.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
